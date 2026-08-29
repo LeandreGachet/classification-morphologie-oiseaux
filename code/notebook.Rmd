@@ -1,0 +1,209 @@
+---
+title: 'Projet : Classification morphologique d''oiseaux'
+author: "Léandre Gachet - Tangi Meyer - Theo Guerinel"
+date: "02/05/2025"
+output:
+  html_document:
+    toc: true
+    df_print: paged
+  pdf_document:
+    toc: true
+    number_sections: true
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(tidyverse)
+library(cluster)
+library(factoextra)
+library(mclust)
+library(caret)
+```
+
+# Introduction
+Ce projet a pour objectif d'explorer des données morphologiques sur différentes espèces d'oiseaux afin d’en extraire des regroupements naturels. 
+
+# Chargement et préparation des données
+```{r}
+bird <- read.csv("bird.csv")
+str(bird)
+summary(bird)
+```
+On enlève les lignes avec des données manquantes 
+```{r}
+bird_no_NA <- na.omit(bird)
+```
+
+On retire la colonne id et la variable cible type pour l’analyse non supervisée.
+```{r}
+X <- bird_no_NA %>% select(-id, -type)
+type <- bird_no_NA$type
+```
+
+Standardisation des variables :
+```{r}
+X_scaled <- scale(X)
+```
+
+
+# Analyse exploratoire
+```{r}
+pairs(X, main="Scatterplot matrix des variables morphologiques", pch = 21, bg = "lightblue")
+```
+
+On observe des corrélations linéaires positives assez marquées entre plusieurs paires de variables, notamment entre les longueurs d’os : huml, ulnal, feml, tibl, etc. Cela suggère que les individus ayant une structure corporelle longue ont tendance à être globalement plus grands.
+Les largeurs (humw, ulnaw, femw, tibw, tarw) présentent également des corrélations, mais moins fortes que pour les longueurs.
+Il existe peu de variables indépendantes : la structure corporelle des oiseaux semble globalement proportionnelle.
+
+# Clustering K-means
+
+## Choix du nombre de clusters
+
+```{r}
+fviz_nbclust(X_scaled, kmeans, method = "wss") + theme_minimal()
+```
+
+Ici, le coude se trouve clairement autour de k = 3.
+
+## Clustering et visualisation
+```{r}
+set.seed(123)
+km <- kmeans(X_scaled, centers = 3, nstart = 25)
+fviz_cluster(km, data = X_scaled, geom = "point", ellipse.type = "norm") + theme_minimal()
+```
+
+## Comparaison avec les vraies classes
+```{r}
+table(Cluster = km$cluster, Type = type)
+```
+
+Interprétation des clusters :
+
+**Cluster 1 (rond rouge)** :
+Le cluster plot montre que ce cluster est très compact et bien séparé.
+Dominé par SO (Songbirds) avec 121 individus.
+Suivi par SW (Shorebirds - 27), W (Waterfowl - 26), P (Penguins - 33).
+Majorité claire de Songbirds → on peut dire que ce cluster regroupe des oiseaux légers/petits, probablement avec des mesures morphologiques similaires.
+
+**Cluster 2 (triangle vert)** :
+Le cluster plot montre que ce cluster est plus éparpillé, mais pas mal défini.
+Dominé par SW (Shorebirds) avec 56 individus, et W (Waterfowl) avec 31.
+Présence aussi de R (Raptors - 21).
+Ce groupe semble représenter des oiseaux de taille moyenne à grande, adaptés à l’eau ou au vol plané.
+
+**Cluster 3 (carré bleu)** :
+Le cluster plot montre que c'est le cluster le plus étendu, mais il est bien distinct.
+Presque exclusivement R (Raptors) : 18 individus.
+Et aussi SW (33).
+Cette sur-représentation de SW dans deux clusters peut indiquer une variabilité morphologique importante chez eux.
+Ce cluster regroupe possiblement des oiseaux massifs ou avec des particularités communes à certains rapaces.
+
+
+- Le K-means à 3 clusters semble cohérent avec la structure des données.
+- Dim1 (85.4%) explique l'essentiel de la variance — probablement la taille globale ou une variable fortement corrélée à plusieurs mesures.
+- On a une bonne séparation entre les groupes.
+
+# Clustering hiérarchique
+
+```{r}
+hc <- hclust(dist(X_scaled), method = "ward.D2")
+plot(hc, labels = FALSE, main = "Dendrogramme hiérarchique", xlab="", sub="")
+rect.hclust(hc, k=3, border="red")
+hc_cut <- cutree(hc, k=3)
+table(hc_cut, type)
+```
+
+Le cluster 2 regroupe la majorité des Songbirds (SO = 124), donc c’est sans doute le groupe principal.
+Le cluster 3 isole bien les Shorebirds (SW), même s'il reste quelques W et R.
+Le cluster 1 est plus flou, peut-être les espèces intermédiaires ou plus difficiles à classer.
+
+# Modèle de mélange gaussien (EM via Mclust)
+
+```{r}
+EM_model <- Mclust(X_scaled, G=1:15)
+summary(EM_model)
+fviz_mclust(EM_model, what = "classification", geom = "point")
+```
+
+## Nombre optimal de clusters
+
+Le modèle retenu est un modèle VEE avec 11 composantes.
+
+Les effectifs des clusters sont les suivants :
+44, 31, 12, 27, 58, 49, 36, 49, 14, 36, 57 
+
+## Critères d’évaluation
+
+Log-vraisemblance : 1377.4
+
+Nombre de paramètres (df) : 185
+
+BIC : 1640.48
+
+ICL : 1575.86
+
+Le BIC maximal suggère que 11 clusters offrent le meilleur compromis entre qualité d’ajustement et complexité du modèle.
+
+## Visualisation
+
+Le graphique ci-dessus montre la classification des observations selon le modèle retenu. Chaque ellipse représente une composante gaussienne estimée, avec une couleur et une forme distinctes pour chaque cluster.
+
+# Comparaison des méthodes
+
+On compare les trois méthodes avec l’indice de Rand ajusté :
+```{r}
+adjustedRandIndex(km$cluster, type)
+adjustedRandIndex(hc_cut, type)
+adjustedRandIndex(EM_model$classification, type)
+```
+
+Plus l’indice est proche de 1, meilleure est la correspondance entre clusters et vraies classes.
+
+Le modèle de mélange gaussien (GMM) obtient le meilleur ARI (0.2545), indiquant une meilleure correspondance avec les classes réelles.
+Le k-means suit de près avec un ARI de 0.1987, ce qui est raisonnable vu sa simplicité.
+
+# Analyse des groupes
+
+On ajoute les clusters à nos données et observe les profils :
+```{r}
+bird_no_NA$cluster_EM <- as.factor(EM_model$classification)
+bird_no_NA %>% 
+  group_by(cluster_EM) %>%
+  summarise(across(huml:tarw, list(mean = mean, sd = sd))) %>%
+  knitr::kable(digits = 1, caption = "Statistiques descriptives par cluster (EM)")
+
+fviz_cluster(list(data=X_scaled, cluster=EM_model$classification),
+             ellipse.type="convex", repel=TRUE) + theme_minimal()
+```
+
+# Interprétation morphologique des groupes
+
+L’analyse des statistiques descriptives par cluster met en évidence une hétérogénéité morphologique marquée entre les groupes identifiés par le modèle EM. Les différences portent à la fois sur la taille générale des os mesurés (humérus, ulna, fémur, tibia, tarse) et sur leur largeur.
+
+On peut dégager plusieurs profils morphologiques :
+
+- Clusters 5, 6, 9 et 11 : caractérisés par de très faibles valeurs de longueur et de largeur sur l’ensemble des segments — ils pourraient correspondre à des individus juvéniles, de petite taille, ou à une espèce distincte de plus petit gabarit.
+
+- Clusters 1, 2, 7, 8, 10 : présentent des dimensions intermédiaires, avec une certaine variation intra-cluster. Ils pourraient représenter des adultes de taille moyenne ou une population mixte (âge, sexe, ou espèce).
+
+- Cluster 3 : se distingue par une longueur de tibia exceptionnellement élevée (150.8 mm en moyenne), ce qui pourrait refléter une adaptation locomotrice spécifique ou un caractère sexuel secondaire (ex. dimorphisme sexuel).
+
+- Cluster 4 : groupe aux valeurs les plus élevées pour presque toutes les dimensions, mais avec des écarts-types très importants. Cela peut suggérer la présence d’un mélange d’individus très différents (ex. mâles/femelles très dimorphes, ou plusieurs espèces confondues), ou simplement des valeurs extrêmes.
+
+Cette diversité morphologique suggère que l’échantillon étudié pourrait inclure plusieurs classes biologiques distinctes : juvéniles/adultes, mâles/femelles, ou différentes espèces/populations.
+
+# Conclusion
+
+Le recours au modèle de mélange gaussien (via EM et Mclust) a permis de classifier l’échantillon en 11 groupes morphologiquement distincts, avec une meilleure performance (ARI = 0.254) que les méthodes de k-means ou de classification hiérarchique.
+
+Cette approche a révélé :
+
+- Une grande hétérogénéité morphologique au sein des individus.
+- La présence de groupes extrêmes (petits et grands spécimens).
+- Des clusters intermédiaires qui pourraient représenter différentes classes d’âge, sexes ou espèces.
+
+
+
+
+
+
