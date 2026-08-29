@@ -1,22 +1,22 @@
 # Classification morphologique d'oiseaux sans étiquettes
 
-Des mesures morphologiques d'oiseaux — longueurs, largeurs, masses. Peut-on retrouver des groupes d'espèces à partir de la seule forme des individus, sans jamais montrer à l'algorithme à quelle espèce ils appartiennent ?
+Des mesures morphologiques d'oiseaux : longueurs, largeurs, masses. Peut-on retrouver des groupes d'espèces à partir de la seule forme des individus, sans jamais montrer à l'algorithme à quelle espèce ils appartiennent ?
 
 Projet de Master en apprentissage non supervisé, en trinôme.
 
 ## Démarche
 
-**Trois familles de méthodes**, choisies parce qu'elles ne font pas les mêmes hypothèses sur ce qu'est un groupe.
+Trois familles de méthodes, choisies parce qu'elles ne font pas les mêmes hypothèses sur ce qu'est un groupe.
 
-**K-means** — groupes sphériques de taille comparable. Nombre de classes choisi sur la courbe d'inertie intra-classe, avec 25 initialisations aléatoires pour ne pas rester coincé dans un optimum local.
+K-means : groupes sphériques de taille comparable. Nombre de classes choisi sur la courbe d'inertie intra-classe, avec 25 initialisations aléatoires pour ne pas rester coincé dans un optimum local.
 
-**Classification ascendante hiérarchique**, critère de Ward. Pas de nombre de classes fixé d'avance : le dendrogramme montre à quelle hauteur les regroupements deviennent coûteux, et la coupure se discute.
+Classification ascendante hiérarchique, critère de Ward. Pas de nombre de classes fixé d'avance : le dendrogramme montre à quelle hauteur les regroupements deviennent coûteux, et la coupure se discute.
 
-**Mélange gaussien estimé par EM** (`Mclust`), testé de 1 à 15 composantes. Contrairement aux deux précédentes, cette méthode autorise des groupes de formes, d'orientations et de tailles différentes, et **choisit lui-même le nombre de composantes par critère d'information** — le nombre de classes devient un résultat, plus un réglage.
+Mélange gaussien estimé par EM (`Mclust`), testé de 1 à 15 composantes. Contrairement aux deux précédentes, cette méthode autorise des groupes de formes, d'orientations et de tailles différentes, et choisit lui-même le nombre de composantes par critère d'information : le nombre de classes devient un résultat, plus un réglage.
 
-**Comparaison aux vraies espèces.** Les étiquettes existent, mais elles ne servent qu'après coup : à mesurer si les groupes trouvés correspondent à quelque chose de réel. C'est ce qui distingue une partition arbitraire d'une structure.
+Comparaison aux vraies espèces : les étiquettes existent, mais elles ne servent qu'après coup, à mesurer si les groupes trouvés correspondent à quelque chose de réel. C'est ce qui distingue une partition arbitraire d'une structure.
 
-**Interprétation morphologique** des groupes obtenus — dire ce qui, dans les mesures, sépare les groupes.
+Interprétation morphologique des groupes obtenus : dire ce qui, dans les mesures, sépare les groupes.
 
 ## Ce que ça produit
 
@@ -43,4 +43,4 @@ Projet réalisé avec Tangi Meyer et Théo Guérinel. Publié avec leur accord.
 
 ---
 
-**Léandre Gachet** — Master Mathématiques appliquées, statistique, Université de Rennes
+**Léandre Gachet**, Master Mathématiques appliquées, statistique, Université de Rennes
